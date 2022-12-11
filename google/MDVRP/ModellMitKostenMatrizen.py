@@ -14,6 +14,21 @@ with open('./../data/Wednesdaybedarfe.csv', 'r', newline='') as csvfile:
     bedarfe = [abs(int(demand)) for coordinates, demand in rows]
 
 
+def computeTimeCallBackMatrix():
+    data = create_data_model()
+    timeMatrix = []
+    for i in range(len(data['distance_matrix'])):
+        innerlist = []
+        for j in range(len(data['distance_matrix'])):
+            innerlist.append(time_callback(i, j, data))
+        timeMatrix.append(innerlist)
+    return timeMatrix
+
+
+def time_callback(from_index, to_index, data):
+    return getTimeConsumptionFromOneNodeToAnother(data['distance_matrix'][from_index][to_index])
+
+
 def costs_for_cargoType1(from_index, to_index, data):
     """Gibt Kosten für Nutzen von Kante für Fahrzeugtyp 1 zurück"""
     # Convert from routing variable Index to distance matrix NodeIndex.
@@ -156,25 +171,17 @@ def main():
     transit_callback_matrix_c2 = routing.RegisterTransitMatrix(cargo2)
     transit_callback_matrix_c3 = routing.RegisterTransitMatrix(cargo3)
 
-    def time_callback(from_index, to_index):
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        return getTimeConsumptionFromOneNodeToAnother(data['distance_matrix'][from_node][to_node])
+    timeMatrix = computeTimeCallBackMatrix()
 
-    time_worker_fn_index = routing.RegisterTransitCallback(time_callback)
-
-    routing.AddDimension(
-        time_worker_fn_index,  # total time function callback
-        0,
+    routing.AddMatrixDimension(
+        timeMatrix,
         int(6.5 * multiplier),
         True,
         'Time')
 
-    # Wann ist ein Fahrzeug Cargotyp 1? --> mod 3 =0
-    # Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
-    # Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
+
+
     # Setzt für die verschiedenen Fahrzeugtypen Kostenfunktionen und Fixkosten
-    # Möglicherweise auslagern in Funktion. Damits hübscher aussieht.
     for vehicle_id in range(data['num_vehicles']):
         if vehicle_id % (len(data["vehicle_capacities"]) // 7) <= 10:
             routing.SetArcCostEvaluatorOfVehicle(transit_callback_matrix_c1, vehicle_id)
@@ -207,7 +214,6 @@ def main():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.solution_limit = 1
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)

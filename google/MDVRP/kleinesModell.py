@@ -13,6 +13,32 @@ with open('./../data/Wednesdaybedarfe.csv', 'r', newline='') as csvfile:
     rows = csv.reader(csvfile, delimiter=",")
     bedarfe = [int(demand) for coordinates, demand in rows]
 
+
+def getBenzinCosts(distance_in_meters, consumption_per_100km):
+    distance_in_km = distance_in_meters / 1000
+    distance_in_hundred_km = distance_in_km / 100
+    cost_per_100km = 2.1 * consumption_per_100km
+    return int(distance_in_hundred_km * cost_per_100km * multiplier)
+
+
+def getCostFromWorkerPerKM(distance_in_meters, stundensatz):
+    return int(getTimeConsumptionFromOneNodeToAnother(distance_in_meters) * stundensatz)
+
+
+def getTimeConsumptionFromOneNodeToAnother(distance_in_meters):
+    time_for_one_km = 1 / 30  # eine Dreißigstelstunde braucht man um km zu fahren.
+    distance_in_km = distance_in_meters / 1000
+    return int(distance_in_km * time_for_one_km * multiplier)
+
+
+def getCostsPerAbgabeStelle():
+    return int(zeit_weg_vom_wagen_zum_haus_und_zurueck * stundensatz_mitarbeiter)
+
+
+def getCostsPerPaket(stundensatz, zeit_pro_paket_in_std):
+    return int(stundensatz * zeit_pro_paket_in_std)
+
+
 # TODO alle Kostenfunktionen in einer Funktion schachteln und schauen dass nur einmal gerundet wird.
 # Constraint Programmierung --> Kann keine Fließkommazahlen -> Man multipliziert alle Kosten einfach mit 10000 -> Ganzzahlergebnis.
 multiplier = 10000
@@ -260,28 +286,3 @@ def print_solution(data, manager, routing, solution):
 
 if __name__ == '__main__':
     main()
-
-
-def getCostFromWorkerPerKM(distance_in_meters, stundensatz):
-    return int(getTimeConsumptionFromOneNodeToAnother(distance_in_meters) * stundensatz)
-
-
-def getTimeConsumptionFromOneNodeToAnother(distance_in_meters):
-    time_for_one_km = 1 / 30  # eine Dreißigstelstunde braucht man um km zu fahren.
-    distance_in_km = distance_in_meters / 1000
-    return int(distance_in_km * time_for_one_km * multiplier)
-
-
-def getCostsPerAbgabeStelle():
-    return int(zeit_weg_vom_wagen_zum_haus_und_zurueck * stundensatz_mitarbeiter)
-
-
-def getCostsPerPaket(stundensatz, zeit_pro_paket_in_std):
-    return int(stundensatz * zeit_pro_paket_in_std)
-
-
-def getBenzinCosts(distance_in_meters, consumption_per_100km):
-    distance_in_km = distance_in_meters / 1000
-    distance_in_hundred_km = distance_in_km / 100
-    cost_per_100km = 2.1 * consumption_per_100km
-    return int(distance_in_hundred_km * cost_per_100km * multiplier)
