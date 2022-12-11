@@ -114,7 +114,6 @@ zeit_pro_paket_in_std = (0.0131 + 0.0055 + 0.0005 + 0.0133) * multiplier
 zeit_weg_vom_wagen_zum_haus_und_zurueck = 0.0133 * multiplier
 
 
-
 def create_data_model():
     data = {}
     # Eigentlich benötigte Daten bzw. vehicle Capacities gehörten angepasst.
@@ -137,8 +136,6 @@ def create_data_model():
     return data
 
 
-
-
 def main():
     # Instanzieren des Problems
     data = create_data_model()
@@ -148,11 +145,16 @@ def main():
                                            data['num_vehicles'], data['startsends'], data['startsends'])
 
     # Erstellt auf Grundlage des Managers das Model.
+    parameterss = pywrapcp.DefaultRoutingModelParameters()
+    parameterss.max_callback_cache_size = 2000 * 2000 * 2
     routing = pywrapcp.RoutingModel(manager)
     # Gibt dem Solver bescheid das "Callback existiert" und übergibt die Funktion an den Solver --> macht sie nutzbar.
-    transit_callback_matrix_c1 = routing.RegisterTransitMatrix(computeDistanceMatrixCargo1())
-    transit_callback_matrix_c2 = routing.RegisterTransitMatrix(computeDistanceMatrixCargo2())
-    transit_callback_matrix_c3 = routing.RegisterTransitMatrix(computeDistanceMatrixCargo3())
+    cargo1 = computeDistanceMatrixCargo1()
+    cargo2 = computeDistanceMatrixCargo2()
+    cargo3 = computeDistanceMatrixCargo3()
+    transit_callback_matrix_c1 = routing.RegisterTransitMatrix(cargo1)
+    transit_callback_matrix_c2 = routing.RegisterTransitMatrix(cargo2)
+    transit_callback_matrix_c3 = routing.RegisterTransitMatrix(cargo3)
 
     def time_callback(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
@@ -205,7 +207,7 @@ def main():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.FromSeconds(1000)
+    search_parameters.solution_limit = 1
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
