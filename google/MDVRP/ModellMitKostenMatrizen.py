@@ -114,19 +114,6 @@ zeit_pro_paket_in_std = (0.0131 + 0.0055 + 0.0005 + 0.0133) * multiplier
 zeit_weg_vom_wagen_zum_haus_und_zurueck = 0.0133 * multiplier
 
 
-def create_data_model():
-    data = {}
-    # Eigentlich benötigte Daten bzw. vehicle Capacities gehörten angepasst.
-    # data['demands'] = bedarfe
-    # data['distance_matrix'] = distance_matrix
-    # data['vehicle_capacities'] = 1500* [irgendwas]
-
-    # Distanzmatrix ist in Metern
-
-    # Fixkosten pro Jahr und Tag gemeinsam --> wird an einem Tag genutzt -> Beides fällt an (Kann man sich auch was anderes überlegen)
-    data['fixcostsyearAndDay'] = [3790, 4570, 9225]
-    return data
-
 
 def create_data_model():
     data = {}
