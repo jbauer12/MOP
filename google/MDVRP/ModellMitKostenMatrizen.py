@@ -8,10 +8,10 @@ with open('./../data/Wednesday.csv', 'r', newline='') as csvfile:
     # Spaßeswegen Umschreiben in list comprehension
     for i in range(len(distance_matrix)):
         for j in range(len(distance_matrix[i])):
-            distance_matrix[i][j] = int(float(distance_matrix[i][j]))
+            distance_matrix[i][j] = abs(int(float(distance_matrix[i][j])))
 with open('./../data/Wednesdaybedarfe.csv', 'r', newline='') as csvfile:
     rows = csv.reader(csvfile, delimiter=",")
-    bedarfe = [int(demand) for coordinates, demand in rows]
+    bedarfe = [abs(int(demand)) for coordinates, demand in rows]
 
 
 def costs_for_cargoType1(from_index, to_index, data):
