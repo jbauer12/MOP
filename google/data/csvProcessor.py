@@ -26,7 +26,7 @@ def createDayCSV(df, name):
 
 
 def bedarfeErmitteln(df, weekday):
-    Bedarfe = {"1": 5}
+    Bedarfe = {}
 
     for i in range(len(df)):
         if df.iloc[i]["signature"] not in Bedarfe.keys():

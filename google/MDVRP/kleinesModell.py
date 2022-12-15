@@ -43,6 +43,7 @@ def getCostsPerPaket(stundensatz, zeit_pro_paket_in_std):
 # Constraint Programmierung --> Kann keine Fließkommazahlen -> Man multipliziert alle Kosten einfach mit 10000 -> Ganzzahlergebnis.
 multiplier = 10000
 # 23.612...
+# Overlay
 stundensatz_mitarbeiter = (40000 / 220) / 7.7
 zeit_pro_paket_in_std = (0.0131 + 0.0055 + 0.0005 + 0.0133) * multiplier
 zeit_weg_vom_wagen_zum_haus_und_zurueck = 0.0133 * multiplier
@@ -50,11 +51,6 @@ zeit_weg_vom_wagen_zum_haus_und_zurueck = 0.0133 * multiplier
 
 def create_data_model():
     data = {}
-    # Eigentlich benötigte Daten bzw. vehicle Capacities gehörten angepasst.
-    # data['demands'] = bedarfe
-    # data['distance_matrix'] = distance_matrix
-    # data['vehicle_capacities'] = 1500* [irgendwas]
-
     # Distanzmatrix ist in Metern
     data['distance_matrix'] = [
         [
@@ -126,16 +122,12 @@ def create_data_model():
             536, 194, 798, 0
         ],
     ]
-    data['distances_cargo1'] = []
-    data['distances_cargo2'] = []
-    data['distances_cargo3'] = []
-
     data['demands'] = [0, 0, 0, 0, 0, 0, 0, 20, 50, 60, 21, 111, 22, 40, 40, 1, 120]
     data['vehicle_capacities'] = 7 * [30, 60, 200]
     data['num_vehicles'] = 21
     data['startsends'] = 3 * [0, 1, 2, 3, 4, 5,
                               6]  # Liste ist ein Depot -- jedes Depot soll drei Fahrzeuge haben unterschiedlichen Typs
-    # Fixkosten pro Jahr und Tag gemeinsam --> wird an einem Tag genutzt -> Beides fällt an (Kann man sich auch was anderes überlegen)
+    # Fixkosten pro Jahr und Tag gemeinsam --> wird an einem Tag genutzt -> Beides fällt an
     data['fixcostsyearAndDay'] = [3790 * multiplier, 4570 * multiplier, 9225 * multiplier]
     return data
 
@@ -193,10 +185,6 @@ def main():
     transit_callback_index_c2 = routing.RegisterTransitCallback(costs_for_cargoType2)
     transit_callback_index_c3 = routing.RegisterTransitCallback(costs_for_cargoType3)
 
-    # Wann ist ein Fahrzeug Cargotyp 1? --> mod 3 =0
-    # Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
-    # Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
-
     def time_callback(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
@@ -212,7 +200,10 @@ def main():
         'Time')
 
     # Setzt für die verschiedenen Fahrzeugtypen Kostenfunktionen und Fixkosten
-    # Möglicherweise auslagern in Funktion. Damits hübscher aussieht.
+    # Zugehörigkeit  eines Fahrzeugs zu Kostentyp anhand Stelle in der Liste.
+    # Wann ist ein Fahrzeug Cargotyp 1? --> mod 3 =0
+    # Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
+    # Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
     for vehicle_id in range(data['num_vehicles']):
         if vehicle_id % 3 == 0:
             routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c1, vehicle_id)
@@ -253,6 +244,11 @@ def main():
     # Print solution on console.
     if solution:
         print_solution(data, manager, routing, solution)
+    else:
+        # 2 --> keine Lösung gefunden
+        # 3 --> Zeit reichte nicht aus um Lösung zu finden.
+        #SWEEP nur für C++ Version verfügbar scheinbar
+        print(routing.status())
 
 
 def print_solution(data, manager, routing, solution):

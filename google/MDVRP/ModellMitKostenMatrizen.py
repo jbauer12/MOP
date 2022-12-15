@@ -162,7 +162,7 @@ def main():
     # Erstellt auf Grundlage des Managers das Model.
     parameterss = pywrapcp.DefaultRoutingModelParameters()
     parameterss.max_callback_cache_size = 2000 * 2000 * 2
-    routing = pywrapcp.RoutingModel(manager)
+    routing = pywrapcp.RoutingModel(manager, parameterss)
     # Gibt dem Solver bescheid das "Callback existiert" und übergibt die Funktion an den Solver --> macht sie nutzbar.
     cargo1 = computeDistanceMatrixCargo1()
     cargo2 = computeDistanceMatrixCargo2()
@@ -178,8 +178,6 @@ def main():
         int(6.5 * multiplier),
         True,
         'Time')
-
-
 
     # Setzt für die verschiedenen Fahrzeugtypen Kostenfunktionen und Fixkosten
     for vehicle_id in range(data['num_vehicles']):
@@ -214,6 +212,7 @@ def main():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.time_limit.FromSeconds(1000)
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
