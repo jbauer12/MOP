@@ -1,6 +1,4 @@
 import csv
-
-import pandas
 import pandas as pd
 from scipy.spatial.distance import cdist
 
@@ -12,6 +10,9 @@ def readFromCSV(Dateiname):
     df.Y = df.Y.str.replace(',', '.')
     df.X = df.X.str.replace(',', '.')
     df['signature'] = "(" + df['Y'] + " " + df['X'] + ")"
+    df.PLZ = df.PLZ.astype(str)
+    df.Strasse = df.Strasse.astype(str)
+    df['streetandplz'] = "(" + df['PLZ'] + " " + df['Strasse'] + ")"
     df.Y = df.Y.astype(float)
     df.X = df.X.astype(float)
     df.Y = df.Y.astype(int)
@@ -20,19 +21,19 @@ def readFromCSV(Dateiname):
 
 
 def createDayCSV(df, name):
-    df = df.drop_duplicates(subset=['signature'])
-    ergebnis = pd.DataFrame(cdist(df[['X', "Y"]], df[['X', "Y"]]), index=df["signature"], columns=df["signature"])
+    df = df.drop_duplicates(subset=['streetandplz'])
+    # Bei CSV muss zuerst erste Spalte und erste Zeile gelöscht werden um eingelesen werden zu können
+    ergebnis = pd.DataFrame(cdist(df[['X', "Y"]], df[['X', "Y"]]), index=df["streetandplz"], columns=df["streetandplz"])
     ergebnis.to_csv(name + ".csv", sep=";", decimal=".")
 
 
 def bedarfeErmitteln(df, weekday):
     Bedarfe = {}
-
     for i in range(len(df)):
-        if df.iloc[i]["signature"] not in Bedarfe.keys():
-            Bedarfe[df.iloc[i]["signature"]] = df.iloc[i]["Menge"]
+        if df.iloc[i]["streetandplz"] not in Bedarfe.keys():
+            Bedarfe[df.iloc[i]["streetandplz"]] = df.iloc[i]["Menge"]
         else:
-            Bedarfe[df.iloc[i]["signature"]] = Bedarfe[df.iloc[i]["signature"]] + df.iloc[i]["Menge"]
+            Bedarfe[df.iloc[i]["streetandplz"]] = Bedarfe[df.iloc[i]["streetandplz"]] + df.iloc[i]["Menge"]
 
     with open(weekday + 'bedarfe.csv', 'w', newline="") as csv_file:
         writer = csv.writer(csv_file)
@@ -47,7 +48,6 @@ df['day_of_week'] = df['Datum'].dt.day_name()
 df["day_of_week"] = df["day_of_week"].astype(str)
 weekday = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 dfs = [df[(df['day_of_week'] == day) | (df.Datum.isnull())] for day in weekday]
-
 
 bedarfeErmitteln(dfs[2], weekday[2])
 createDayCSV(dfs[2], weekday[2])
