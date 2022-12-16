@@ -11,13 +11,12 @@ with open('./../data/Wednesday.csv', 'r', newline='') as csvfile:
         for j in range(len(distance_matrix[i])):
             # Einträge sind in KM
             distance_matrix[i][j] = abs(int(float(distance_matrix[i][j]) / 1000))
-with open('./../data/Mondaybedarfe.csv', 'r', newline='') as csvfile:
+with open('./../data/Wednesdaybedarfe.csv', 'r', newline='') as csvfile:
     rows = csv.reader(csvfile, delimiter=",")
     bedarfe = [abs(int(demand)) for coordinates, demand in rows]
     print(f'Bedarfe ingesamt: {sum(bedarfe)}')
 
 
-# TODO Kostenfunktion überprüfen ob Kosten richtig berechnet werden
 def computeCosts(data, from_index, to_index, verbrauch):
     # Anzahl Pakete, welche von Kunden nachgefragt werden
     pakete = data['demands'][to_index]
@@ -41,7 +40,6 @@ def computeCosts(data, from_index, to_index, verbrauch):
         time = distance_in_km * time_for_one_km
         return time
 
-    # TODO brauchen wir hier Multiplier?
     costs = int((getBenzinCosts(data['distance_matrix'][from_index][to_index], verbrauch) + getCostsPerPaket(
         zeit_pro_paket_in_std) * pakete + getCostsPerAbgabeStelle() + getCostFromWorkerPerKM(
         data['distance_matrix'][from_index][to_index])) * multiplier)
@@ -103,7 +101,7 @@ def computeDistanceMatrixCargo3():
 
 def getTimeConsumptionFromOneNodeToAnother(distance_in_km):
     time_for_one_km = 1 / 30  # eine Dreißigstelstunde braucht man um km zu fahren.
-    time = int(distance_in_km * time_for_one_km * multiplier)
+    time = int(distance_in_km * time_for_one_km)
 
     return time
 
@@ -112,11 +110,12 @@ def getTimeConsumptionFromOneNodeToAnother(distance_in_km):
 multiplier = 1000
 # 23.612...
 # Overlay
-# TODO Prüfen ob diese Werte stimmen.
 stundensatz_mitarbeiter = (40000 / 220) / 7.7
-zeit_pro_paket_in_std = (0.0131 + 0.0055 + 0.0005)
+zeit_pro_paket_in_std_innen_und_aussen = (0.0131 + 0.0055 + 0.0005)
+zeit_pro_paket_in_std = 0.0131 + 0.0055 + 0.0005
 zeit_weg_vom_wagen_zum_haus_und_zurueck = 0.0133
 max_zeit_fahrer = 6.5 * multiplier
+max_zeit_fahrer_innen_aussen = 7.7 * multiplier
 
 
 def create_data_model():
@@ -170,15 +169,16 @@ def main():
     transit_callback_index_c2 = routing.RegisterTransitMatrix(cargo2)
     transit_callback_index_c3 = routing.RegisterTransitMatrix(cargo3)
 
-    # TODO prüfen ob Zeit richtig berechnet wird
     def time_callback(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
-        return getTimeConsumptionFromOneNodeToAnother(data['distance_matrix'][from_node][to_node])
+        # t2 Zeitbedarf pro Adresse check + t4 Übergabetätigkeitszeit*Pakete + t3 Zeitbedarf gefahrener km* KM
+        return (zeit_weg_vom_wagen_zum_haus_und_zurueck + data['demands'][
+            to_node] * zeit_pro_paket_in_std + getTimeConsumptionFromOneNodeToAnother(
+            data['distance_matrix'][from_node][to_node])) * multiplier
 
     time_worker_fn_index = routing.RegisterTransitCallback(time_callback)
 
-    # TODO stimmt max_zeit_fahrer?
     routing.AddDimension(
         time_worker_fn_index,  # total time function callback
         0,
@@ -186,63 +186,82 @@ def main():
         True,
         'Time')
 
-    # Setzt für die verschiedenen Fahrzeugtypen Kostenfunktionen und Fixkosten
-    # Zugehörigkeit  eines Fahrzeugs zu Kostentyp anhand Stelle in der Liste.
-    # Wann ist ein Fahrzeug Cargotyp 1? --> mod 3 =0
-    # Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
-    # Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
-    # TODO werden die Vehicle richtig den Kostenfunktionen und Fixkosten gesetzt?
-    for vehicle_id in range(data['num_vehicles']):
-        if vehicle_id % 180 < 60:
-            routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c1, vehicle_id)
-            routing.SetFixedCostOfVehicle(data['fixcostsyearAndDay'][0], vehicle_id)
-        elif vehicle_id % 180 < 120:
-            routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c2, vehicle_id)
-            routing.SetFixedCostOfVehicle(data['fixcostsyearAndDay'][1], vehicle_id)
-        else:
-            routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c3, vehicle_id)
-            routing.SetFixedCostOfVehicle(data['fixcostsyearAndDay'][2], vehicle_id)
-
-    # Add Capacity constraint.
-    def demand_callback(from_index):
-        """Returns the demand of the node."""
+    def time_callback_innen_aussen(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
-        return data['demands'][from_node]
+        to_node = manager.IndexToNode(to_index)
+        # t2 Zeitbedarf pro Adresse check + t1 (Übergabetätigkeitszeit*Pakete + Aufladezeit für Pakete + Abrechnungstätigkeit ) + t3 Zeibedarf gefahrener km* KM
+        return zeit_weg_vom_wagen_zum_haus_und_zurueck + data['demands'][
+            to_node] * zeit_pro_paket_in_std_innen_und_aussen + getTimeConsumptionFromOneNodeToAnother(
+            data['distance_matrix'][from_node][to_node])
 
-    demand_callback_index = routing.RegisterUnaryTransitCallback(
-        demand_callback)
-    routing.AddDimensionWithVehicleCapacity(
-        demand_callback_index,
-        0,  # null capacity slack
-        data['vehicle_capacities'],  # vehicle maximum capacities
-        True,  # start cumul to zero
-        'Capacity')
+    time_worker_fn_index_innen_aussen = routing.RegisterTransitCallback(time_callback_innen_aussen)
 
-    # Allow to drop nodes.
-    # TODO reicht Strafe von zehn Million?
-    penalty = 10000000
-    for node in range(0, len(data['distance_matrix'])):
-        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+    routing.AddDimension(
+        time_worker_fn_index_innen_aussen,  # total time function callback
+        0,
+        int(max_zeit_fahrer_innen_aussen),
+        True,
+        'Time')
 
-    # Setting first solution heuristic.
-    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    #search_parameters.time_limit.seconds = 15 * 60
-    search_parameters.solution_limit = 1
-    # Solve the problem.
-    solution = routing.SolveWithParameters(search_parameters)
 
-    # Print solution on console.
-    if solution:
-        print_solution(data, manager, routing, solution)
+# Setzt für die verschiedenen Fahrzeugtypen Kostenfunktionen und Fixkosten
+# Zugehörigkeit  eines Fahrzeugs zu Kostentyp anhand Stelle in der Liste.
+# Wann ist ein Fahrzeug Cargotyp 1? --> mod 3 =0
+# Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
+# Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
+for vehicle_id in range(data['num_vehicles']):
+    if vehicle_id % 180 < 60:
+        routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c1, vehicle_id)
+        routing.SetFixedCostOfVehicle(data['fixcostsyearAndDay'][0], vehicle_id)
+    elif vehicle_id % 180 < 120:
+        routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c2, vehicle_id)
+        routing.SetFixedCostOfVehicle(data['fixcostsyearAndDay'][1], vehicle_id)
     else:
-        # 2 --> keine Lösung gefunden
-        # 3 --> Zeit reichte nicht aus um Lösung zu finden.
-        # SWEEP nur für C++ Version verfügbar scheinbar
-        print(routing.status())
+        routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c3, vehicle_id)
+        routing.SetFixedCostOfVehicle(data['fixcostsyearAndDay'][2], vehicle_id)
+
+
+# Add Capacity constraint.
+def demand_callback(from_index):
+    """Returns the demand of the node."""
+    from_node = manager.IndexToNode(from_index)
+    return data['demands'][from_node]
+
+
+demand_callback_index = routing.RegisterUnaryTransitCallback(
+    demand_callback)
+routing.AddDimensionWithVehicleCapacity(
+    demand_callback_index,
+    0,  # null capacity slack
+    data['vehicle_capacities'],  # vehicle maximum capacities
+    True,  # start cumul to zero
+    'Capacity')
+
+# Allow to drop nodes.
+penalty = 10000000
+for node in range(0, len(data['distance_matrix'])):
+    routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+
+# Setting first solution heuristic.
+search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+search_parameters.first_solution_strategy = (
+    routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+search_parameters.local_search_metaheuristic = (
+    routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+# search_parameters.time_limit.seconds = 15 * 60
+search_parameters.solution_limit = 1
+# Solve the problem.
+solution = routing.SolveWithParameters(search_parameters)
+
+# Print solution on console.
+if solution:
+    print_solution(data, manager, routing, solution)
+    get_routes(data, solution, routing, manager)
+else:
+    # 2 --> keine Lösung gefunden
+    # 3 --> Zeit reichte nicht aus um Lösung zu finden.
+    # SWEEP nur für C++ Version verfügbar scheinbar
+    print(routing.status())
 
 
 def print_solution(data, manager, routing, solution):
@@ -328,7 +347,6 @@ def get_routes(data, solution, routing, manager):
         routes.append(route)
         total_distance += route_distance
         total_load += route_load
-
 
     # opening the csv file in 'w+' mode
     file = open('overlaymonday.csv', 'w+', newline='')
