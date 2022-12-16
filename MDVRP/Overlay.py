@@ -39,8 +39,6 @@ def computeCosts(data, from_index, to_index, verbrauch):
     def getTimeConsumptionFromOneNodeToAnotherForCosts(distance_in_km):
         time_for_one_km = 1 / 30  # eine Dreißigstelstunde braucht man um km zu fahren.
         time = distance_in_km * time_for_one_km
-        if time > 6.5:
-            return 6
         return time
 
     # TODO brauchen wir hier Multiplier?
