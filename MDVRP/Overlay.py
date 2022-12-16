@@ -160,7 +160,7 @@ def main():
     parameterss.max_callback_cache_size = 2000 * 2000 * 2
     routing = pywrapcp.RoutingModel(manager, parameterss)
 
-    #Kostenmatrizen werden berechnet.
+    # Kostenmatrizen werden berechnet.
     cargo1 = computeDistanceMatrixCargo1()
     cargo2 = computeDistanceMatrixCargo2()
     cargo3 = computeDistanceMatrixCargo3()
@@ -170,7 +170,7 @@ def main():
     transit_callback_index_c2 = routing.RegisterTransitMatrix(cargo2)
     transit_callback_index_c3 = routing.RegisterTransitMatrix(cargo3)
 
-    #TODO prüfen ob Zeit richtig berechnet wird
+    # TODO prüfen ob Zeit richtig berechnet wird
     def time_callback(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
@@ -178,7 +178,7 @@ def main():
 
     time_worker_fn_index = routing.RegisterTransitCallback(time_callback)
 
-#TODO stimmt max_zeit_fahrer?
+    # TODO stimmt max_zeit_fahrer?
     routing.AddDimension(
         time_worker_fn_index,  # total time function callback
         0,
@@ -191,7 +191,7 @@ def main():
     # Wann ist ein Fahrzeug Cargotyp 1? --> mod 3 =0
     # Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
     # Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
-    #TODO werden die Vehicle richtig den Kostenfunktionen und Fixkosten gesetzt?
+    # TODO werden die Vehicle richtig den Kostenfunktionen und Fixkosten gesetzt?
     for vehicle_id in range(data['num_vehicles']):
         if vehicle_id % 180 < 60:
             routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c1, vehicle_id)
@@ -219,7 +219,7 @@ def main():
         'Capacity')
 
     # Allow to drop nodes.
-    #TODO reicht Strafe von zehn Million?
+    # TODO reicht Strafe von zehn Million?
     penalty = 10000000
     for node in range(0, len(data['distance_matrix'])):
         routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
@@ -230,8 +230,8 @@ def main():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.seconds = 15 * 60
-    # search_parameters.solution_limit = 1
+    #search_parameters.time_limit.seconds = 15 * 60
+    search_parameters.solution_limit = 1
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
 
@@ -285,6 +285,59 @@ def print_solution(data, manager, routing, solution):
         total_load += route_load
     print('Gesamtkosten aller Routen: {}€'.format(total_distance // multiplier))
     print('ausgetragene Pakete aller Routen: {}'.format(total_load))
+
+
+def get_routes(data, solution, routing, manager):
+    print(f'Objective: {solution.ObjectiveValue()}')
+    total_distance = 0
+    total_load = 0
+    routes = []
+    for vehicle_id in range(data['num_vehicles']):
+        route = []
+        innerroute = []
+        index = routing.Start(vehicle_id)
+        # erste Spalte vehicle_id
+        route.append(vehicle_id)
+        # Typ
+        if vehicle_id % 180 < 60:
+            route.append(1)
+        elif vehicle_id % 180 < 120:
+            route.append(2)
+        else:
+            route.append(3)
+        # Depot
+        route.append(data['num_vehicles'] // 180)
+        route_distance = 0
+        route_load = 0
+        while not routing.IsEnd(index):
+            node_index = manager.IndexToNode(index)
+            route_load += data['demands'][node_index]
+            # Tupel --> erstes Wo fahr ich hin zweites, aktuell ausgeliefert
+            innerroute.append((node_index, route_load))
+            previous_index = index
+            index = solution.Value(routing.NextVar(index))
+            route_distance += routing.GetArcCostForVehicle(
+                previous_index, index, vehicle_id)
+        # letzter angefahrene Kunde?
+        innerroute.append((manager.IndexToNode(index), route_load))
+        # Kosten der Route
+        route.append(route_distance // multiplier)
+        # Pakete je Route
+        route.append(route_load)
+        route.extend(innerroute)
+        routes.append(route)
+        total_distance += route_distance
+        total_load += route_load
+
+
+    # opening the csv file in 'w+' mode
+    file = open('overlaymonday.csv', 'w+', newline='')
+
+    # writing the data into the file
+    with file:
+        write = csv.writer(file)
+        write.writerows(routes)
+    return print(routes)
 
 
 if __name__ == '__main__':

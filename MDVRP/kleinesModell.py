@@ -243,12 +243,65 @@ def main():
 
     # Print solution on console.
     if solution:
-        print_solution(data, manager, routing, solution)
+        get_routes(data, solution, routing, manager)
     else:
         # 2 --> keine Lösung gefunden
         # 3 --> Zeit reichte nicht aus um Lösung zu finden.
-        #SWEEP nur für C++ Version verfügbar scheinbar
+        # SWEEP nur für C++ Version verfügbar scheinbar
         print(routing.status())
+
+
+def get_routes(data, solution, routing, manager):
+    print(f'Objective: {solution.ObjectiveValue()}')
+    total_distance = 0
+    total_load = 0
+    routes = []
+    for vehicle_id in range(data['num_vehicles']):
+        route = []
+        innerroute = []
+        index = routing.Start(vehicle_id)
+        # erste Spalte vehicle_id
+        route.append(vehicle_id)
+        # Typ
+        if vehicle_id % 180 < 60:
+            route.append(1)
+        elif vehicle_id % 180 < 120:
+            route.append(2)
+        else:
+            route.append(3)
+        # Depot
+        route.append(data['num_vehicles'] // 180)
+        route_distance = 0
+        route_load = 0
+        while not routing.IsEnd(index):
+            node_index = manager.IndexToNode(index)
+            route_load += data['demands'][node_index]
+            # Tupel --> erstes Wo fahr ich hin zweites, aktuell ausgeliefert
+            innerroute.append((node_index, route_load))
+            previous_index = index
+            index = solution.Value(routing.NextVar(index))
+            route_distance += routing.GetArcCostForVehicle(
+                previous_index, index, vehicle_id)
+        # letzter angefahrene Kunde?
+        innerroute.append((manager.IndexToNode(index), route_load))
+        # Kosten der Route
+        route.append(route_distance // multiplier)
+        # Pakete je Route
+        route.append(route_load)
+        route.extend(innerroute)
+        routes.append(route)
+        total_distance += route_distance
+        total_load += route_load
+
+
+    # opening the csv file in 'w+' mode
+    file = open('klein.csv', 'w+', newline='')
+
+    # writing the data into the file
+    with file:
+        write = csv.writer(file)
+        write.writerows(routes)
+    return print(routes)
 
 
 def print_solution(data, manager, routing, solution):

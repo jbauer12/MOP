@@ -185,7 +185,7 @@ def main():
     # Wann ist ein Fahrzeug Cargotyp 2? --> mod 3 =1
     # Wann ist ein Fahrzeug Cargotyp 3? --> mod 3 =2
     # Es wird praktisch die Position im Array bestimmt. erstes Drittel im Array --> also erste 60 Fahrzeuge im Depot --> Kapazität 30
-    #TODO prüfen ob Kostenfunktion richtig gesetzt wird und Fixkosten richtig gesetzt werden.
+    # TODO prüfen ob Kostenfunktion richtig gesetzt wird und Fixkosten richtig gesetzt werden.
     for vehicle_id in range(data['num_vehicles']):
         if vehicle_id % 180 < 60:
             routing.SetArcCostEvaluatorOfVehicle(transit_callback_index_c1, vehicle_id)
@@ -218,8 +218,8 @@ def main():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.seconds = 15 * 60
-    # search_parameters.solution_limit = 1
+    #search_parameters.time_limit.seconds = 15 * 60
+    search_parameters.solution_limit = 1
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
@@ -227,6 +227,7 @@ def main():
     # Print solution on console.
     if solution:
         print_solution(data, manager, routing, solution)
+        get_routes(data,solution, routing, manager)
     else:
         # 2 --> keine Lösung gefunden
         # 3 --> Zeit reichte nicht aus um Lösung zu finden.
@@ -274,6 +275,59 @@ def print_solution(data, manager, routing, solution):
         total_load += route_load
     print('Gesamtkosten aller Routen: {}€'.format(total_distance // multiplier))
     print('ausgetragene Pakete aller Routen: {}'.format(total_load))
+
+
+def get_routes(data, solution, routing, manager):
+    print(f'Objective: {solution.ObjectiveValue()}')
+    total_distance = 0
+    total_load = 0
+    routes = []
+    for vehicle_id in range(data['num_vehicles']):
+        route = []
+        innerroute = []
+        index = routing.Start(vehicle_id)
+        # erste Spalte vehicle_id
+        route.append(vehicle_id)
+        # Typ
+        if vehicle_id % 180 < 60:
+            route.append(1)
+        elif vehicle_id % 180 < 120:
+            route.append(2)
+        else:
+            route.append(3)
+        # Depot
+        route.append(data['num_vehicles'] // 180)
+        route_distance = 0
+        route_load = 0
+        while not routing.IsEnd(index):
+            node_index = manager.IndexToNode(index)
+            route_load += data['demands'][node_index]
+            # Tupel --> erstes Wo fahr ich hin zweites, aktuell ausgeliefert
+            innerroute.append((node_index, route_load))
+            previous_index = index
+            index = solution.Value(routing.NextVar(index))
+            route_distance += routing.GetArcCostForVehicle(
+                previous_index, index, vehicle_id)
+        # letzter angefahrene Kunde?
+        innerroute.append((manager.IndexToNode(index), route_load))
+        # Kosten der Route
+        route.append(route_distance // multiplier)
+        # Pakete je Route
+        route.append(route_load)
+        route.extend(innerroute)
+        routes.append(route)
+        total_distance += route_distance
+        total_load += route_load
+
+
+    # opening the csv file in 'w+' mode
+    file = open('klein.csv', 'w+', newline='')
+
+    # writing the data into the file
+    with file:
+        write = csv.writer(file)
+        write.writerows(routes)
+    return print(routes)
 
 
 if __name__ == '__main__':
