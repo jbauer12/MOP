@@ -327,7 +327,6 @@ def get_routes(data, solution, routing, manager):
     with file:
         write = csv.writer(file)
         write.writerows(routes)
-    return print(routes)
 
 
 if __name__ == '__main__':
